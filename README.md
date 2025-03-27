@@ -1,4 +1,4 @@
-Enhancing Cloud-Removed Regions in Multispectral Optical Images Using SAR Edge Features
+Enhancing Cloud-Removed Regions in Multispectral Optical Images Using SAR Edge Features (Under reviewed by IEEE GRSL)
 
 Minghua Wang, Xin Zhao, Longfei Ren
 

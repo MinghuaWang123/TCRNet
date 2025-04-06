@@ -101,8 +101,6 @@ class SobelConv2d(nn.Module):
 
         self.sobel_weight = nn.Parameter(torch.zeros(
             size=(out_channels, in_channels, kernel_size, kernel_size), dtype=torch.float32), requires_grad=False)
-        #self.sobel_weight = 0.1 * nn.Parameter(torch.ones(
-            #size=(out_channels, in_channels, kernel_size, kernel_size), dtype=torch.float32), requires_grad=False)
 
 
         # Initialize the Sobel kernal
@@ -118,11 +116,6 @@ class SobelConv2d(nn.Module):
                 self.sobel_weight[idx, :, kernel_mid, 0] = -2
                 self.sobel_weight[idx, :, :, -1] = 1
                 self.sobel_weight[idx, :, kernel_mid, -1] = 2
-
-
-
-
-        # self.sobel_weight = torch.where(self.sobel_weight ==0, torch.tensor(0.1, dtype=torch.float32), self.sobel_weight)
 
 
         # Define the trainable sobel factor
@@ -159,9 +152,6 @@ class SARGuidedMechanism(nn.Module):
         super(SARGuidedMechanism, self).__init__()
 
         self.conv1 = nn.Conv2d(dim_SAR*4, n_feat, kSize, padding=(kSize - 1) // 2, stride=1)
-
-        # self.conv2 = nn.Conv2d(dim_SAR, n_feat, kernel_size=1, bias=True)
-        # self.depth_conv = nn.Conv2d(n_feat, n_feat, kernel_size=5, padding=2, bias=True, groups=n_feat)
         self.conv_sobel = SobelConv2d(in_ch, sobel_ch, kernel_size=3, stride=1, padding=1, bias=True)
 
         self.depth_conv = nn.Conv2d(n_feat, n_feat, kernel_size=5, padding=2, bias=True, groups=n_feat)
@@ -171,28 +161,17 @@ class SARGuidedMechanism(nn.Module):
         self.conv2 = nn.Conv2d(dim_SAR, n_feat, kernel_size=1, bias=True)
         self.conv32 = nn.Conv2d(dim_SAR, n_feat, 3, padding=(3 - 1) // 2, stride=1)
 
-        # double CNN
-        # self.conv33 = nn.Conv2d(dim_SAR, dim_SAR, 3, padding=(3 - 1) // 2, stride=1)
-        # self.BN2 = nn.BatchNorm2d(dim_SAR)
-
 
 
 
     def forward(self, SAR_img):
         # x: b,c,h,w
         [bs, nC, row, col] = SAR_img.shape
-        # SAR_canny = torch.zeros(bs, nC, row, col)
-        # SAR_img_sub = torch.zeros(row, col)
         a = self.conv3(SAR_img)
         SAR_cov3 = self.BN(a)
 
-        # b = self.conv33(SAR_cov3)
-        # SAR_cov32 = self.BN2(b)
-
 
         SAR_Sobel = self.conv_sobel(SAR_cov3) + SAR_cov3
-        # a = SAR_Sobel[1,1,:,:]
-        # cv2.imshow('edge', a.cpu().detach().numpy())
         SAR_edge1 = self.conv2(SAR_Sobel)
         SAR_edge2 = torch.sigmoid(self.conv32(SAR_Sobel))
         SAR_edge3 = self.depth_conv(self.conv2(SAR_Sobel))
@@ -383,11 +362,7 @@ class TCRNet(nn.Module):
         SAR_imgs = []
 
         for (MSAB, FeaDownSample, MaskDownSample) in self.encoder_layers:
-            fea_encoder_return1 = fea
             fea = MSAB(fea, SAR_img)
-            fea_encoder_return2 = fea
-            fea_encoder_return3 = fea_encoder_return2 - fea_encoder_return1
-
             SAR_imgs.append(SAR_img)
             fea_encoder.append(fea)
             fea = FeaDownSample(fea)
@@ -399,19 +374,13 @@ class TCRNet(nn.Module):
         # Decoder
         for i, (FeaUpSample, Fution, LeWinBlcok) in enumerate(self.decoder_layers):
             fea = FeaUpSample(fea)
-
-            fea_decoder_return1 = fea
             fea = Fution(torch.cat([fea, fea_encoder[self.stage - 1 - i]], dim=1))
-            fea_decoder_return2 = fea
-            fea_decoder_return3 = fea_decoder_return2 - fea_decoder_return1
-
             SAR_img = SAR_imgs[self.stage - 1 - i]
             fea = LeWinBlcok(fea, SAR_img)
 
         # Mapping
         out = self.mapping(fea) + x
 
-        # return out, fea_encoder_return1, fea_encoder_return2, fea_encoder_return3, fea_decoder_return1, fea_decoder_return2, fea_decoder_return3
         return out
 
 
